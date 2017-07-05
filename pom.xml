@@ -10,13 +10,17 @@
     <url>http://maven.apache.org</url>
 
     <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
         <!-- protobuf paths -->
         <protobuf.input.directory>${project.basedir}/src/main/protobuf</protobuf.input.directory>
-        <protobuf.output.directory>${project.build.directory}/generated</protobuf.output.directory>
+        <protobuf.output.directory>${project.build.directory}/generated-sources</protobuf.output.directory>
         <!-- library versions -->
         <build-helper-maven-plugin.version>3.0.0</build-helper-maven-plugin.version>
         <maven-antrun-plugin.version>1.8</maven-antrun-plugin.version>
         <maven-dependency-plugin.version>3.0.1</maven-dependency-plugin.version>
+        <maven-compiler-plugin.version>3.6.1</maven-compiler-plugin.version>
+        <maven-assembly-plugin.version>3.0.0</maven-assembly-plugin.version>
         <os-maven-plugin.version>1.5.0.Final</os-maven-plugin.version>
         <protobuf.version>3.3.0</protobuf.version>
         <kotlin.version>1.1.3-2</kotlin.version>
@@ -24,15 +28,15 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.jetbrains.kotlin</groupId>
-            <artifactId>kotlin-stdlib</artifactId>
-            <version>${kotlin.version}</version>
-        </dependency>        
-        <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
             <version>${protobuf.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-stdlib</artifactId>
+            <version>${kotlin.version}</version>
+        </dependency>        
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
@@ -41,117 +45,179 @@
         </dependency>
     </dependencies>
 
-
     <build>
-        <sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
-        <testSourceDirectory>${project.basedir}/src/test/kotlin</testSourceDirectory>        
-
         <extensions>
-            <!-- provides os.detected.classifier (i.e. linux-x86_64, osx-x86_64) property -->
             <extension>
                 <groupId>kr.motd.maven</groupId>
                 <artifactId>os-maven-plugin</artifactId>
                 <version>${os-maven-plugin.version}</version>
             </extension>
         </extensions>
-        <pluginManagement>
-            <plugins>
-                <plugin>
-                    <artifactId>kotlin-maven-plugin</artifactId>
-                    <groupId>org.jetbrains.kotlin</groupId>
-                    <version>${kotlin.version}</version>
-                    <executions>
-                        <execution>
-                            <id>compile</id>
-                            <goals> <goal>compile</goal> </goals>
-                        </execution>
-                        <execution>
-                            <id>test-compile</id>
-                            <goals> <goal>test-compile</goal> </goals>
-                        </execution>
-                    </executions>
-                </plugin>                
-                <!-- compile proto buffer files using copied protoc binary -->
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-antrun-plugin</artifactId>
-                    <version>${maven-antrun-plugin.version}</version>
-                    <executions>
-                        <execution>
-                            <id>exec-protoc</id>
-                            <phase>generate-sources</phase>
-                            <configuration>
-                                <target>
-                                    <property name="protoc.filename" value="protoc-${protobuf.version}-${os.detected.classifier}.exe"/>
-                                    <property name="protoc.filepath" value="${project.build.directory}/${protoc.filename}"/>
-                                    <chmod file="${protoc.filepath}" perm="ugo+rx"/>
-                                    <mkdir dir="${protobuf.output.directory}" />
-                                    <path id="protobuf.input.filepaths.path">
-                                        <fileset dir="${protobuf.input.directory}">
-                                            <include name="**/*.proto"/>
-                                        </fileset>
-                                    </path>
-                                    <pathconvert pathsep=" " property="protobuf.input.filepaths" refid="protobuf.input.filepaths.path"/>
-                                    <exec executable="${protoc.filepath}" failonerror="true">
-                                        <arg value="-I"/>
-                                        <arg value="${protobuf.input.directory}"/>
-                                        <arg value="--java_out"/>
-                                        <arg value="${protobuf.output.directory}"/>
-                                        <arg line="${protobuf.input.filepaths}"/>
-                                    </exec>
-                                </target>
-                            </configuration>
-                            <goals>
-                                <goal>run</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                </plugin>
-                <!-- add generated proto buffer classes into the package -->
-                <plugin>
-                    <groupId>org.codehaus.mojo</groupId>
-                    <artifactId>build-helper-maven-plugin</artifactId>
-                    <version>${build-helper-maven-plugin.version}</version>
-                    <executions>
-                        <execution>
-                            <id>add-classes</id>
-                            <phase>generate-sources</phase>
-                            <goals>
-                                <goal>add-source</goal>
-                            </goals>
-                            <configuration>
-                                <sources>
-                                    <source>${protobuf.output.directory}</source>
-                                </sources>
-                            </configuration>
-                        </execution>
-                    </executions>
-                </plugin>            
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-assembly-plugin</artifactId>
-                    <version>2.6</version>
-                    <executions>
-                        <execution>
-                            <id>make-assembly</id>
-                            <phase>package</phase>
-                            <goals> 
-                                <goal>single</goal>
-                            </goals>
-                            <configuration>
-                                <archive>
-                                    <manifest>
-                                        <mainClass>${main.class}</mainClass>
-                                    </manifest>
-                                </archive>
-                                <descriptorRefs>
-                                    <descriptorRef>jar-with-dependencies</descriptorRef>
-                                </descriptorRefs>
-                            </configuration>
-                        </execution>
-                    </executions>
-                </plugin>                
-            </plugins>
-        </pluginManagement>    
+        <plugins>
+            <!-- copy protoc binary into build directory -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>${maven-dependency-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>copy-protoc</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>com.google.protobuf</groupId>
+                                    <artifactId>protoc</artifactId>
+                                    <version>${protobuf.version}</version>
+                                    <classifier>${os.detected.classifier}</classifier>
+                                    <type>exe</type>
+                                    <overWrite>true</overWrite>
+                                    <outputDirectory>${project.build.directory}</outputDirectory>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- compile proto buffer files using copied protoc binary -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>${maven-antrun-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>exec-protoc</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <property name="protoc.filename" value="protoc-${protobuf.version}-${os.detected.classifier}.exe"/>
+                                <property name="protoc.filepath" value="${project.build.directory}/${protoc.filename}"/>
+                                <chmod file="${protoc.filepath}" perm="ugo+rx"/>
+                                <mkdir dir="${protobuf.output.directory}" />
+                                <path id="protobuf.input.filepaths.path">
+                                    <fileset dir="${protobuf.input.directory}">
+                                        <include name="**/*.proto"/>
+                                    </fileset>
+                                </path>
+                                <pathconvert pathsep=" " property="protobuf.input.filepaths" refid="protobuf.input.filepaths.path"/>
+                                <exec executable="${protoc.filepath}" failonerror="true">
+                                    <arg value="-I"/>
+                                    <arg value="${protobuf.input.directory}"/>
+                                    <arg value="--java_out"/>
+                                    <arg value="${protobuf.output.directory}"/>
+                                    <arg line="${protobuf.input.filepaths}"/>
+                                </exec>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- add generated proto buffer classes into the package -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>${build-helper-maven-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>add-classes</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${protobuf.output.directory}</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- kotlin and java code compile -->
+            <plugin>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-maven-plugin</artifactId>
+                <version>${kotlin.version}</version>
+                <executions>
+                    <execution>
+                        <id>compile</id>
+                        <goals> <goal>compile</goal> </goals>
+                        <configuration>
+                            <sourceDirs>
+                                <sourceDir>${project.basedir}/src/main/kotlin</sourceDir>
+                                <sourceDir>${project.basedir}/src/main/java</sourceDir>
+                            </sourceDirs>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>test-compile</id>
+                        <goals> <goal>test-compile</goal> </goals>
+                        <configuration>
+                            <sourceDirs>
+                                <sourceDir>${project.basedir}/src/test/kotlin</sourceDir>
+                                <sourceDir>${project.basedir}/src/test/java</sourceDir>
+                            </sourceDirs>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven-compiler-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>default-compile</id>
+                        <phase>none</phase>
+                    </execution>
+                    <execution>
+                        <id>default-testCompile</id>
+                        <phase>none</phase>
+                    </execution>
+                    <execution>
+                        <id>java-compile</id>
+                        <phase>compile</phase>
+                        <goals> <goal>compile</goal> </goals>
+                    </execution>
+                    <execution>
+                        <id>java-test-compile</id>
+                        <phase>test-compile</phase>
+                        <goals> <goal>testCompile</goal> </goals>
+                    </execution>
+                </executions>
+            </plugin>                
+
+            <!-- build single jar -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>${maven-assembly-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>make-assembly</id>
+                        <phase>package</phase>
+                        <goals> 
+                            <goal>single</goal>
+                        </goals>
+                        <configuration>
+                            <archive>
+                                <manifest>
+                                    <mainClass>${main.class}</mainClass>
+                                </manifest>
+                            </archive>
+                            <descriptorRefs>
+                                <descriptorRef>jar-with-dependencies</descriptorRef>
+                            </descriptorRefs>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>                
+        </plugins>
     </build>  
 </project>
