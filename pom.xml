@@ -23,7 +23,7 @@
         <maven-assembly-plugin.version>3.0.0</maven-assembly-plugin.version>
         <os-maven-plugin.version>1.5.0.Final</os-maven-plugin.version>
         <protobuf.version>3.3.0</protobuf.version>
-        <kotlin.version>1.1.4</kotlin.version>
+        <kotlin.version>1.1.4-3</kotlin.version>
     </properties>
 
     <dependencies>
@@ -40,7 +40,7 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>3.8.1</version>
+            <version>4.12</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -150,8 +150,9 @@
                         <goals> <goal>compile</goal> </goals>
                         <configuration>
                             <sourceDirs>
-                                <sourceDir>${project.basedir}/src/main/kotlin</sourceDir>
                                 <sourceDir>${project.basedir}/src/main/java</sourceDir>
+                                <sourceDir>${protobuf.output.directory}</sourceDir>
+                                <sourceDir>${project.basedir}/src/main/kotlin</sourceDir>
                             </sourceDirs>
                         </configuration>
                     </execution>
@@ -160,8 +161,8 @@
                         <goals> <goal>test-compile</goal> </goals>
                         <configuration>
                             <sourceDirs>
-                                <sourceDir>${project.basedir}/src/test/kotlin</sourceDir>
                                 <sourceDir>${project.basedir}/src/test/java</sourceDir>
+                                <sourceDir>${project.basedir}/src/test/kotlin</sourceDir>
                             </sourceDirs>
                         </configuration>
                     </execution>
